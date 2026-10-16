@@ -117,20 +117,19 @@ jobs:
           if-no-files-found: error
 
       - name: Collect install files
-        # Only what's needed to install: the app at the top, its x64 dependency packages in Dependencies.
+        # Only what's needed to install: the app at the top, its 5 x64 dependency packages in Dependencies.
         if: matrix.configuration == 'Release'
         shell: pwsh
         run: |
           $test = Get-ChildItem AppPackages -Directory -Filter '*_Test' | Select-Object -First 1
           $app = @(Get-ChildItem $test.FullName -Filter *.msix)
           $dependencies = @(Get-ChildItem (Join-Path $test.FullName 'Dependencies\x64') -Filter *.appx)
-          if ($app.Count -ne 1 -or $dependencies.Count -lt 1) {
-            throw "Expected the app and its dependencies, found: $(($app + $dependencies).Name -join ', ')"
+          if ($app.Count -ne 1 -or $dependencies.Count -ne 5) {
+            throw "Expected the app and 5 dependencies, found: $(($app + $dependencies).Name -join ', ')"
           }
           New-Item -ItemType Directory release\Dependencies -Force | Out-Null
           $app | Copy-Item -Destination release
           $dependencies | Copy-Item -Destination release\Dependencies
-          "DEPENDENCY_COUNT=$($dependencies.Count)" >> $env:GITHUB_ENV
           Get-ChildItem release -Recurse -File | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + 1) }
 
       - uses: actions/upload-artifact@v6
@@ -160,8 +159,8 @@ jobs:
           if ($changes.Success) { $notes += @("## What's new", $changes.Groups[1].Value.Trim(), '') }
           $notes += @(
             '## Install',
-            "Download **TubeBox-x64.zip** and unzip it. It contains the app (.msix) and a Dependencies folder with the $env:DEPENDENCY_COUNT dependency packages (.appx).",
-            'Install steps are in the README: upload the .msix in the Xbox Device Portal, then add the files from Dependencies. Installing over an earlier version keeps your sign-in and settings.',
+            'Download **TubeBox-x64.zip** and unzip it. It contains the app (.msix) and a Dependencies folder with the 5 dependency packages (.appx).',
+            'Install steps are in the README: upload the .msix in the Xbox Device Portal, then add the 5 files from Dependencies. Installing over an earlier version keeps your sign-in and settings.',
             '',
             "Package version: $($parts[0..2] -join '.')")
           $notes -join "`n" | Set-Content release-notes.md -Encoding utf8
