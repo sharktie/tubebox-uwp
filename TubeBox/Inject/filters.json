@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "updated": "2026-10-16",
+  "comment": "TubeBox ad filters. The app checks this file on GitHub for a newer version, so ad blocking can be fixed without reinstalling. pruneKeys are removed from every YouTube response, pruneItems drop any list entry with that key, blockUrls are refused before they leave the console.",
+  "pruneKeys": [
+    "adPlacements",
+    "adSlots",
+    "playerAds",
+    "adBreakHeartbeatParams"
+  ],
+  "pruneItems": [
+    "adSlotRenderer",
+    "adsControlFlowOpportunityReceivedCommand",
+    "promotedSparklesWebRenderer",
+    "promotedVideoRenderer",
+    "compactPromotedVideoRenderer",
+    "searchPyvRenderer",
+    "inFeedAdLayoutRenderer"
+  ],
+  "blockUrls": [
+    "*://*.doubleclick.net/*",
+    "*://*.googlesyndication.com/*",
+    "*://*.googleadservices.com/*",
+    "*://*.googletagservices.com/*",
+    "*://*.google-analytics.com/*",
+    "*://imasdk.googleapis.com/*",
+    "*://*.2mdn.net/*",
+    "*://www.youtube.com/pagead/*",
+    "*://www.youtube.com/api/stats/ads*",
+    "*://www.youtube.com/api/stats/*el=adunit*",
+    "*://www.youtube.com/ptracking*",
+    "*://www.youtube.com/pcs/activeview*",
+    "*://www.youtube.com/get_midroll_*"
+  ]
+}

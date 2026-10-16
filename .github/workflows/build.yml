@@ -1,0 +1,177 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  scripts:
+    name: Check page scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: |
+          # The scripts added to YouTube's page have no build step; make sure each at least parses.
+          # Parsed from stdin in strict (module) mode, since `node --check file.js` can pass a broken file.
+          for file in TubeBox/Inject/*.js; do
+            node --input-type=module --check < "$file" || { echo "::error file=$file::Syntax error"; exit 1; }
+          done
+          node -e '
+            const f = JSON.parse(require("fs").readFileSync("TubeBox/Inject/filters.json", "utf8"));
+            for (const k of ["pruneKeys", "pruneItems", "blockUrls"]) {
+              if (!Array.isArray(f[k]) || f[k].some((v) => typeof v !== "string" || !v)) throw new Error(k + " must be a list of strings");
+            }
+            if (!(f.version >= 1)) throw new Error("version must be 1 or more");
+            console.log("filters.json version " + f.version + " OK");
+          '
+
+  package:
+    name: Package (${{ matrix.configuration }})
+    needs: scripts
+    runs-on: windows-2022
+    permissions:
+      contents: write # publish releases for version tags
+    strategy:
+      fail-fast: false
+      matrix:
+        # Release is the one to install. Debug skips .NET Native, which helps tell a
+        # compiler problem from an app problem if a Release build misbehaves.
+        configuration: [Release, Debug]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: microsoft/setup-msbuild@v3
+
+      - name: Set package version
+        shell: pwsh
+        run: |
+          $manifest = Resolve-Path 'TubeBox\Package.appxmanifest'
+          [xml]$xml = Get-Content $manifest -Raw
+          # Major and minor from the manifest, then the run number: always increasing, so a newer
+          # build installs over an older one.
+          $base = [version]$xml.Package.Identity.Version
+          $version = "$($base.Major).$($base.Minor).$env:GITHUB_RUN_NUMBER.0"
+          $xml.Package.Identity.Version = $version
+          $xml.Save($manifest)
+          "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
+          "Version: $version"
+
+      - name: Create signing certificate
+        shell: pwsh
+        run: |
+          # Self-signed, subject must match Publisher in Package.appxmanifest.
+          $cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=TubeBoxUWP' `
+            -KeyUsage DigitalSignature -FriendlyName 'TubeBox UWP sideload' `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
+          "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+
+      - name: Build package
+        shell: pwsh
+        run: >
+          msbuild TubeBox\TubeBox.csproj -restore -m -nologo -v:minimal
+          /p:Configuration=${{ matrix.configuration }}
+          /p:Platform=x64
+          /p:AppxBundle=Never
+          /p:UapAppxPackageBuildMode=SideloadOnly
+          /p:GenerateAppxPackageOnBuild=true
+          /p:AppxAutoIncrementPackageRevision=false
+          /p:AppxPackageDir=$env:GITHUB_WORKSPACE\AppPackages\
+          /p:AppxPackageSigningEnabled=true
+          /p:PackageCertificateThumbprint=$env:CERT_THUMBPRINT
+
+      - name: Verify package
+        shell: pwsh
+        run: |
+          # Fail the build if the page scripts didn't make it into the package, and publish a
+          # summary as an annotation so it can be read without downloading the artifact.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $msix = Get-ChildItem AppPackages -Recurse -Include *.msix, *.appx |
+            Where-Object { $_.Directory.Parent.Name -ne 'Dependencies' } | Select-Object -First 1
+          if (-not $msix) { throw 'No package was produced.' }
+          $zip = [IO.Compression.ZipFile]::OpenRead($msix.FullName)
+          try {
+            $entries = $zip.Entries | ForEach-Object { $_.FullName }
+            $reader = New-Object IO.StreamReader(($zip.Entries | Where-Object FullName -eq 'AppxManifest.xml').Open())
+            [xml]$manifest = $reader.ReadToEnd()
+            $reader.Close()
+          } finally { $zip.Dispose() }
+          $dependencies = $manifest.Package.Dependencies.PackageDependency | ForEach-Object { $_.Name }
+          $sizeMb = [math]::Round($msix.Length / 1MB, 1)
+          "::notice title=Package (${{ matrix.configuration }})::$($msix.Name) ($sizeMb MB); depends on $($dependencies -join ', ')"
+          $required = @('Inject/prelude.js', 'Inject/adblock.js', 'Inject/video.js', 'Inject/controller.js', 'Inject/filters.json')
+          $missing = $required | Where-Object { $entries -notcontains $_ }
+          if ($missing) { throw "Missing from package: $($missing -join ', ')" }
+          Get-ChildItem AppPackages -Recurse -File | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + 1) }
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: TubeBox-x64-${{ matrix.configuration }}
+          path: AppPackages/
+          if-no-files-found: error
+
+      - name: Collect install files
+        # Only what's needed to install: the app at the top, its x64 dependency packages in Dependencies.
+        if: matrix.configuration == 'Release'
+        shell: pwsh
+        run: |
+          $test = Get-ChildItem AppPackages -Directory -Filter '*_Test' | Select-Object -First 1
+          $app = @(Get-ChildItem $test.FullName -Filter *.msix)
+          $dependencies = @(Get-ChildItem (Join-Path $test.FullName 'Dependencies\x64') -Filter *.appx)
+          if ($app.Count -ne 1 -or $dependencies.Count -lt 1) {
+            throw "Expected the app and its dependencies, found: $(($app + $dependencies).Name -join ', ')"
+          }
+          New-Item -ItemType Directory release\Dependencies -Force | Out-Null
+          $app | Copy-Item -Destination release
+          $dependencies | Copy-Item -Destination release\Dependencies
+          "DEPENDENCY_COUNT=$($dependencies.Count)" >> $env:GITHUB_ENV
+          Get-ChildItem release -Recurse -File | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + 1) }
+
+      - uses: actions/upload-artifact@v6
+        # The same layout as a release, for every build: download it from the run's Artifacts.
+        if: matrix.configuration == 'Release'
+        with:
+          name: TubeBox-x64
+          path: release/
+          if-no-files-found: error
+
+      - name: Publish release
+        # Push a tag such as v1.0.0 to publish the Release build on the repository's Releases page.
+        if: github.ref_type == 'tag' && matrix.configuration == 'Release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $parts = $env:PACKAGE_VERSION.Split('.')
+          if ($tag -match '^v(\d+)\.(\d+)' -and "$($Matches[1]).$($Matches[2])" -ne "$($parts[0]).$($parts[1])") {
+            throw "Tag $tag doesn't match version $($parts[0]).$($parts[1]) in TubeBox\Package.appxmanifest. Update the manifest's Version and tag again."
+          }
+          Compress-Archive -Path release\* -DestinationPath TubeBox-x64.zip
+          $changes = [regex]::Match((Get-Content CHANGELOG.md -Raw -Encoding utf8), '(?ms)^## ' + [regex]::Escape($tag) + '[ \t]*\r?\n(.*?)(?=^## |\z)')
+          $notes = @("TubeBox: YouTube's TV app for Xbox Developer Mode, without the ads.", '')
+          if ($changes.Success) { $notes += @("## What's new", $changes.Groups[1].Value.Trim(), '') }
+          $notes += @(
+            '## Install',
+            "Download **TubeBox-x64.zip** and unzip it. It contains the app (.msix) and a Dependencies folder with the $env:DEPENDENCY_COUNT dependency packages (.appx).",
+            'Install steps are in the README: upload the .msix in the Xbox Device Portal, then add the files from Dependencies. Installing over an earlier version keeps your sign-in and settings.',
+            '',
+            "Package version: $($parts[0..2] -join '.')")
+          $notes -join "`n" | Set-Content release-notes.md -Encoding utf8
+          Get-Content release-notes.md
+          # Re-running the workflow updates the existing release.
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag TubeBox-x64.zip --clobber
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            gh release edit $tag --notes-file release-notes.md
+          } else {
+            gh release create $tag TubeBox-x64.zip --title "TubeBox $tag" --notes-file release-notes.md
+          }

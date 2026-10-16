@@ -1,0 +1,27 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34728.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TubeBox", "TubeBox\TubeBox.csproj", "{7A745E4B-C7E5-4309-9FA4-303977EBF59B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7A745E4B-C7E5-4309-9FA4-303977EBF59B}.Debug|x64.ActiveCfg = Debug|x64
+		{7A745E4B-C7E5-4309-9FA4-303977EBF59B}.Debug|x64.Build.0 = Debug|x64
+		{7A745E4B-C7E5-4309-9FA4-303977EBF59B}.Debug|x64.Deploy.0 = Debug|x64
+		{7A745E4B-C7E5-4309-9FA4-303977EBF59B}.Release|x64.ActiveCfg = Release|x64
+		{7A745E4B-C7E5-4309-9FA4-303977EBF59B}.Release|x64.Build.0 = Release|x64
+		{7A745E4B-C7E5-4309-9FA4-303977EBF59B}.Release|x64.Deploy.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6EF59F2F-75D6-469E-98D1-C3291D574107}
+	EndGlobalSection
+EndGlobal

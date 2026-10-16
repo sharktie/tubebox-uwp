@@ -1,0 +1,26 @@
+# Visual Studio / MSBuild
+.vs/
+*.user
+*.suo
+bin/
+obj/
+builds/
+AppPackages/
+BundleArtifacts/
+TubeBox/Generated Files/
+*.pfx
+*.appx
+*.msix
+*.appxbundle
+*.msixbundle
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Node / tools
+node_modules/
+tools/.edge-profile/
+
+# OS
+Thumbs.db
+.DS_Store

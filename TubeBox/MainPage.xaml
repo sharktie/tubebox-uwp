@@ -1,0 +1,26 @@
+<Page
+    x:Class="TubeBox.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    mc:Ignorable="d"
+    Background="Black">
+
+    <Grid Background="Black">
+        <!-- YouTube's TV app. The controller drives it through PageBridge (see ControllerBridge). -->
+        <controls:WebView2 x:Name="WebView" />
+
+        <Grid x:Name="LoadErrorPanel" Background="#FF000000" Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Padding="24" Spacing="16">
+                <TextBlock Text="Couldn't load YouTube" FontSize="28" Foreground="White" HorizontalAlignment="Center" />
+                <TextBlock x:Name="LoadErrorText" Foreground="#B3FFFFFF" TextWrapping="Wrap" TextAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                    <Button x:Name="RetryButton" Content="Retry" MinWidth="160" Click="RetryButton_Click" />
+                    <Button Content="Exit" MinWidth="160" Click="ExitButton_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
