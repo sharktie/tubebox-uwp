@@ -7,6 +7,7 @@ namespace TubeBox.Settings
     internal static class AppSettings
     {
         private const string BlockAdsKey = "blockAds";
+        private const string SponsorBlockKey = "sponsorBlock";
         private const string CodecKey = "codec";
         private const string MaxHeightKey = "maxHeight";
 
@@ -17,6 +18,13 @@ namespace TubeBox.Settings
         {
             get { return Get(BlockAdsKey, true); }
             set { Values[BlockAdsKey] = value; }
+        }
+
+        /// <summary>Skip sponsor reads, self-promotion and subscribe reminders marked on SponsorBlock.</summary>
+        public static bool SponsorBlock
+        {
+            get { return Get(SponsorBlockKey, true); }
+            set { Values[SponsorBlockKey] = value; }
         }
 
         /// <summary>"auto" (whatever YouTube picks), "vp9" (no AV1) or "h264" (no AV1 or VP9).</summary>

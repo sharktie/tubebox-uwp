@@ -25,24 +25,25 @@ namespace TubeBox
 {
     /// <summary>
     /// YouTube's own TV app (youtube.com/tv, the one smart TVs and consoles run) in a WebView2, with
-    /// the scripts in Inject/ added to it: the controller as a TV remote, ad blocking, and the
-    /// codec and quality limits from TubeBox's settings.
+    /// the scripts in Inject/ added to it: the controller as a TV remote, ad blocking,
+    /// SponsorBlock, and the codec and quality limits from TubeBox's settings.
     /// </summary>
     public sealed partial class MainPage : Page, IPageHost
     {
         private const string HomeUrl = "https://www.youtube.com/tv";
 
         /// <summary>
-        /// YouTube only serves its TV app to TVs and consoles. This is a Chromecast with Google TV,
-        /// a device the TV app treats as a plain modern browser.
+        /// YouTube only serves its TV app to TVs and consoles. This is the Xbox's YouTube app: on some
+        /// videos YouTube holds the picture back for as long as a blocked ad when it thinks it is
+        /// talking to other devices (a Chromecast, for one), but not to an Xbox. The filter list can
+        /// replace it (<see cref="FilterList.UserAgent"/>) if that changes.
         /// </summary>
         private const string TvUserAgent =
-            "Mozilla/5.0 (Linux armeabi-v7a; Android 9) Cobalt/23.lts.4.308317-gold (unlike Gecko) " +
-            "v8/8.8.278.17-jit gles Starboard/14, Google_ATV_sabrina_2020/RVC.200921.001 (Google, Chromecast) " +
-            "com.google.android.youtube.tv/2.12.08";
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; Xbox; Xbox Series X) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/48.0.2564.82 Safari/537.36 Edge/20.02";
 
         /// <summary>Joined in this order into the script added to every page (see Inject/prelude.js).</summary>
-        private static readonly string[] ScriptParts = { "prelude.js", "adblock.js", "video.js", "controller.js" };
+        private static readonly string[] ScriptParts = { "prelude.js", "adblock.js", "sponsorblock.js", "video.js", "controller.js" };
 
         private static readonly bool IsXbox = AnalyticsInfo.VersionInfo.DeviceFamily == "Windows.Xbox";
 
@@ -59,6 +60,7 @@ namespace TubeBox
         // This session's ad blocking, for the settings screen.
         private int _adsRemoved;
         private int _adsSkipped;
+        private int _segmentsSkipped;
         private int _requestsBlockedEarlier;
 
         public MainPage()
@@ -110,8 +112,8 @@ namespace TubeBox
             Log.Write("WebView2 ready, browser " + WebView.CoreWebView2.Environment.BrowserVersionString);
 
             _core = WebView.CoreWebView2;
+            _filters = await FilterList.LoadAsync();
             var settings = _core.Settings;
-            settings.UserAgent = TvUserAgent;
             settings.IsStatusBarEnabled = false;
             settings.IsZoomControlEnabled = false;
             settings.IsPinchZoomEnabled = false;
@@ -129,7 +131,6 @@ namespace TubeBox
             _core.WindowCloseRequested += OnWindowCloseRequested;
             _core.ProcessFailed += OnProcessFailed;
 
-            _filters = await FilterList.LoadAsync();
             try
             {
                 await ApplySettingsAsync();
@@ -166,11 +167,12 @@ namespace TubeBox
         }
 
         /// <summary>
-        /// Puts the current settings into effect: the script added to each page (it takes effect on
-        /// the next page load) and the blocked addresses (straight away).
+        /// Puts the current settings and filters into effect: the user agent and the script added to
+        /// each page (both from the next page load) and the blocked addresses (straight away).
         /// </summary>
         private async Task ApplySettingsAsync()
         {
+            _core.Settings.UserAgent = _filters.UserAgent ?? TvUserAgent;
             var script = await BuildPageScriptAsync();
             if (_scriptId != null)
             {
@@ -188,8 +190,8 @@ namespace TubeBox
             {
                 _blocker = new RequestBlocker(_core, _filters.BlockUrls);
             }
-            Log.Write(string.Format("Settings: ad blocking {0}, codec {1}, maximum quality {2}",
-                AppSettings.BlockAds ? "on" : "off", AppSettings.Codec,
+            Log.Write(string.Format("Settings: ad blocking {0}, SponsorBlock {1}, codec {2}, maximum quality {3}",
+                AppSettings.BlockAds ? "on" : "off", AppSettings.SponsorBlock ? "on" : "off", AppSettings.Codec,
                 AppSettings.MaxHeight > 0 ? AppSettings.MaxHeight + "p" : "automatic"));
         }
 
@@ -198,6 +200,7 @@ namespace TubeBox
             var config = new JsonObject();
             config.SetNamedValue("xbox", JsonValue.CreateBooleanValue(IsXbox));
             config.SetNamedValue("blockAds", JsonValue.CreateBooleanValue(AppSettings.BlockAds));
+            config.SetNamedValue("sponsorBlock", JsonValue.CreateBooleanValue(AppSettings.SponsorBlock));
             config.SetNamedValue("filters", _filters.ToPageConfig());
             config.SetNamedValue("codec", JsonValue.CreateStringValue(AppSettings.Codec));
             config.SetNamedValue("maxHeight", JsonValue.CreateNumberValue(AppSettings.MaxHeight));
@@ -232,6 +235,11 @@ namespace TubeBox
             _adsSkipped += skipped;
         }
 
+        void IPageHost.CountSponsorSkips(int skipped)
+        {
+            _segmentsSkipped += skipped;
+        }
+
         /// <summary>TubeBox's settings, on Menu or View.</summary>
         private async void OpenSettings()
         {
@@ -240,6 +248,11 @@ namespace TubeBox
                 return;
             }
             var blockAds = new ToggleSwitch { Header = "Block ads", IsOn = AppSettings.BlockAds };
+            var sponsorBlock = new ToggleSwitch
+            {
+                Header = "Skip sponsor segments (SponsorBlock)",
+                IsOn = AppSettings.SponsorBlock,
+            };
             var codec = new ComboBox
             {
                 Header = "Video codec",
@@ -259,9 +272,9 @@ namespace TubeBox
             {
                 var blocked = _requestsBlockedEarlier + (_blocker != null ? _blocker.Blocked : 0);
                 status.Text = string.Format(
-                    "This session: {0} ads removed, {1} ad requests blocked{2}.\nAd filters: version {3}{4}.",
+                    "This session: {0} ads removed, {1} ad requests blocked{2}, {3} sponsor segments skipped.\nAd filters: version {4}{5}.",
                     _adsRemoved, blocked, _adsSkipped > 0 ? ", " + _adsSkipped + " ads sped through" : string.Empty,
-                    _filters.Version, _filters.Updated != null ? " (" + _filters.Updated + ")" : string.Empty);
+                    _segmentsSkipped, _filters.Version, _filters.Updated != null ? " (" + _filters.Updated + ")" : string.Empty);
             };
             showStatus();
             var updateButton = new Button { Content = "Update ad filters" };
@@ -272,6 +285,7 @@ namespace TubeBox
 
             var panel = new StackPanel { Spacing = 20, MinWidth = 460 };
             panel.Children.Add(blockAds);
+            panel.Children.Add(sponsorBlock);
             panel.Children.Add(codec);
             panel.Children.Add(quality);
             panel.Children.Add(status);
@@ -340,9 +354,11 @@ namespace TubeBox
             {
                 var newCodec = AppSettings.Codecs[Math.Max(0, codec.SelectedIndex)];
                 var newHeight = AppSettings.MaxHeights[Math.Max(0, quality.SelectedIndex)];
-                if (blockAds.IsOn != AppSettings.BlockAds || newCodec != AppSettings.Codec || newHeight != AppSettings.MaxHeight)
+                if (blockAds.IsOn != AppSettings.BlockAds || sponsorBlock.IsOn != AppSettings.SponsorBlock ||
+                    newCodec != AppSettings.Codec || newHeight != AppSettings.MaxHeight)
                 {
                     AppSettings.BlockAds = blockAds.IsOn;
+                    AppSettings.SponsorBlock = sponsorBlock.IsOn;
                     AppSettings.Codec = newCodec;
                     AppSettings.MaxHeight = newHeight;
                     changed = true;

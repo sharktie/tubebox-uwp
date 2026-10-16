@@ -10,12 +10,14 @@ namespace TubeBox.Bridge
     {
         /// <summary>Ads taken out of YouTube's responses, and ads that played anyway and were sped through.</summary>
         void CountAds(int removed, int skipped);
+        /// <summary>Sponsor segments SponsorBlock skipped.</summary>
+        void CountSponsorSkips(int skipped);
     }
 
     /// <summary>
     /// Messages between the app and the scripts it adds to YouTube's page (Inject/). The app sends
     /// {type: 'input', action, repeat} for the controller; the page sends app.log, app.adblock
-    /// ({removed, skipped}) and app.exit (YouTube's window.close()).
+    /// ({removed, skipped}), app.sponsorblock ({skipped}) and app.exit (YouTube's window.close()).
     /// </summary>
     internal sealed class PageBridge : IDisposable
     {
@@ -71,6 +73,9 @@ namespace TubeBox.Bridge
                         break;
                     case "app.adblock":
                         _host.CountAds((int)GetNumber(message, "removed"), (int)GetNumber(message, "skipped"));
+                        break;
+                    case "app.sponsorblock":
+                        _host.CountSponsorSkips((int)GetNumber(message, "skipped"));
                         break;
                     case "app.exit":
                         Log.Write("YouTube closed itself; exiting");

@@ -8,6 +8,7 @@ TubeBox runs YouTube's own TV app (the one smart TVs and consoles use) and remov
 - **No video ads.** Pre-roll, mid-roll and end ads are taken out of every video.
 - **No sponsored tiles or banners** on the home screen.
 - **Ad servers and ad tracking blocked** before anything leaves the console.
+- **Sponsor segments skipped** with [SponsorBlock](https://sponsor.ajay.app): the sponsor reads, self-promotion and "like and subscribe" reminders inside videos, as marked by SponsorBlock's users. A short notice says what was skipped.
 - **Ad filters update themselves.** When YouTube changes something, a new filter list published here reaches the app without reinstalling it (checked when the app starts, or Settings → Update ad filters).
 - **Full controller support.** The controller works like a TV remote: X plays and pauses, Y searches, LB / RB skip to the previous / next video, and LT / RT rewind and fast-forward.
 - **Video settings.** Limit the codec (VP9 or H.264 instead of AV1) or the maximum quality if videos stutter on your console.
@@ -30,7 +31,9 @@ This app is for Xbox consoles in **Developer Mode**, which is how Xbox lets you 
 **Updating:** install a newer release the same way. It replaces the old version and keeps your sign-in and settings. What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Good to know
-- **A short wait instead of an ad.** On some videos YouTube's servers hold the video back for about as long as the blocked ad would have run. This is YouTube's response to ad blockers, and no ad blocker that uses YouTube's own player can get around it. TubeBox shows a notice while it waits. Most videos start straight away.
+- **A short wait instead of an ad.** On some devices YouTube's servers hold a video back for about as long as the blocked ad would have run; this is YouTube's response to ad blockers. TubeBox presents itself to YouTube as the Xbox YouTube app, which avoided the wait in testing. If YouTube changes that, a filter update can switch it without reinstalling, and TubeBox shows a notice while it waits.
+- **"Confirm you're not a bot".** YouTube sometimes asks signed-out viewers to sign in, usually when a lot of signed-out viewing comes from one internet connection. Signing in avoids it.
+- **SponsorBlock** sends only the first characters of a scrambled form of the video's ID, the same way SponsorBlock's browser extension does, so it can't tell what you watch. Turn it off in the settings if you prefer.
 - **If ads come back**, YouTube has changed something. Open the settings and choose **Update ad filters**; a fix published here arrives that way.
 - Turning off **Block ads** in the settings brings YouTube back exactly as it is.
 

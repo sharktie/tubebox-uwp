@@ -11,6 +11,10 @@
 // Run it when ads start getting through on the console: if a video reports "AD PLAYED", YouTube has
 // changed something, and the fix usually belongs in filters.json (bump its version so the app
 // downloads it). Needs Node 22+ and Edge.
+//
+// Each run watches as a signed-out guest. Many runs in a row from one internet connection make
+// YouTube ask that connection to "confirm you're not a bot" (sign in) for a while; the check says
+// so when that happens, since nothing plays until it passes.
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -23,12 +27,13 @@ const EDGE = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ].find((path) => existsSync(path));
-// Keep in step with TvUserAgent and ScriptParts in TubeBox/MainPage.xaml.cs.
-const USER_AGENT =
-  'Mozilla/5.0 (Linux armeabi-v7a; Android 9) Cobalt/23.lts.4.308317-gold (unlike Gecko) ' +
-  'v8/8.8.278.17-jit gles Starboard/14, Google_ATV_sabrina_2020/RVC.200921.001 (Google, Chromecast) ' +
-  'com.google.android.youtube.tv/2.12.08';
-const PARTS = ['prelude.js', 'adblock.js', 'video.js', 'controller.js'];
+// Keep in step with TvUserAgent and ScriptParts in TubeBox/MainPage.xaml.cs; the filter list's
+// userAgent wins, as in the app.
+const FILTERS = JSON.parse(readFileSync(join(ROOT, 'TubeBox/Inject/filters.json'), 'utf8'));
+const USER_AGENT = FILTERS.userAgent ||
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Xbox; Xbox Series X) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/48.0.2564.82 Safari/537.36 Edge/20.02';
+const PARTS = ['prelude.js', 'adblock.js', 'sponsorblock.js', 'video.js', 'controller.js'];
 
 const args = process.argv.slice(2);
 const blockAds = !args.includes('--off');
@@ -37,10 +42,9 @@ if (!videos.length) videos.push('dQw4w9WgXcQ', '9bZkp7q19f0', 'kJQP7kiw5Fk');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function pageScript() {
-  const filters = JSON.parse(readFileSync(join(ROOT, 'TubeBox/Inject/filters.json'), 'utf8'));
   const config = {
-    xbox: false, blockAds, codec: 'auto', maxHeight: 0,
-    filters: { pruneKeys: filters.pruneKeys, pruneItems: filters.pruneItems },
+    xbox: false, blockAds, sponsorBlock: false, codec: 'auto', maxHeight: 0,
+    filters: { pruneKeys: FILTERS.pruneKeys, pruneItems: FILTERS.pruneItems },
   };
   const body = PARTS.map((p) => readFileSync(join(ROOT, 'TubeBox/Inject', p), 'utf8')).join('\n');
   return `(function (config) {\n'use strict';\nif (!/(^|\\.)youtube\\.com$/.test(location.hostname)) return;\n${body}\n})(${JSON.stringify(config)});`;
@@ -75,7 +79,7 @@ async function main() {
     await new Promise((r) => ws.addEventListener('open', r, { once: true }));
     let id = 0;
     const pending = new Map();
-    const blockedUrls = JSON.parse(readFileSync(join(ROOT, 'TubeBox/Inject/filters.json'), 'utf8')).blockUrls;
+    const blockedUrls = FILTERS.blockUrls;
     const blocked = [];
     ws.addEventListener('message', (event) => {
       const msg = JSON.parse(event.data);
@@ -105,7 +109,13 @@ async function main() {
       await sleep(30000);
       const r = JSON.parse(await evaluate(`JSON.stringify({ ads: window.__ads,
         removed: window.__posted.filter(function (m) { return m.type === 'app.adblock'; }).reduce(function (n, m) { return n + m.removed; }, 0),
-        time: (document.querySelector('video') || {}).currentTime || 0 })`));
+        time: (document.querySelector('video') || {}).currentTime || 0,
+        botCheck: /confirm that you.re not a bot/i.test(document.body.innerText) })`));
+      if (r.botCheck) {
+        console.log(`${video}: YouTube is asking this connection to sign in ("confirm you're not a bot"). Try again later.`);
+        failed = true;
+        continue;
+      }
       // Some videos are held back for the ad's length when the ad is blocked (YouTube's doing), so
       // a video still at the start isn't a failure on its own.
       const started = r.time > 1;

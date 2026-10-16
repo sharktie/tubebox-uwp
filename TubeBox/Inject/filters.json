@@ -1,7 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-16",
-  "comment": "TubeBox ad filters. The app checks this file on GitHub for a newer version, so ad blocking can be fixed without reinstalling. pruneKeys are removed from every YouTube response, pruneItems drop any list entry with that key, blockUrls are refused before they leave the console.",
+  "comment": "TubeBox ad filters. The app checks this file on GitHub for a newer version, so ad blocking can be fixed without reinstalling. userAgent is the device YouTube's TV app is told it runs on (YouTube holds videos back for ad blockers on some devices and not others), pruneKeys are removed from every YouTube response, pruneItems drop any list entry with that key, blockUrls are refused before they leave the console.",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; Xbox; Xbox Series X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.82 Safari/537.36 Edge/20.02",
   "pruneKeys": [
     "adPlacements",
     "adSlots",

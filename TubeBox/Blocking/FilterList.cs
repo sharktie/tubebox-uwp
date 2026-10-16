@@ -11,8 +11,8 @@ using Windows.Web.Http.Filters;
 namespace TubeBox.Blocking
 {
     /// <summary>
-    /// The ad filters (Inject/filters.json): what Inject/adblock.js removes from YouTube's responses
-    /// and which addresses <see cref="RequestBlocker"/> refuses. Like a uBlock Origin filter list,
+    /// The ad filters (Inject/filters.json): what Inject/adblock.js removes from YouTube's responses,
+    /// which addresses <see cref="RequestBlocker"/> refuses, and the device YouTube is told it runs on. Like a uBlock Origin filter list,
     /// it can be updated without updating the app: a newer version published in the repository is
     /// downloaded and kept in the app's LocalState folder.
     /// </summary>
@@ -24,10 +24,11 @@ namespace TubeBox.Blocking
         private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(12);
         private const int MaxEntries = 500;
 
-        private FilterList(int version, string updated, string[] pruneKeys, string[] pruneItems, string[] blockUrls)
+        private FilterList(int version, string updated, string userAgent, string[] pruneKeys, string[] pruneItems, string[] blockUrls)
         {
             Version = version;
             Updated = updated;
+            UserAgent = userAgent;
             PruneKeys = pruneKeys;
             PruneItems = pruneItems;
             BlockUrls = blockUrls;
@@ -35,6 +36,11 @@ namespace TubeBox.Blocking
 
         public int Version { get; }
         public string Updated { get; }
+        /// <summary>
+        /// The user agent for YouTube, or null for the app's own. YouTube holds videos back for as long
+        /// as the blocked ad on some devices and not others, so this can change without an app update.
+        /// </summary>
+        public string UserAgent { get; }
         public IReadOnlyList<string> PruneKeys { get; }
         public IReadOnlyList<string> PruneItems { get; }
         public IReadOnlyList<string> BlockUrls { get; }
@@ -65,7 +71,7 @@ namespace TubeBox.Blocking
             var list = cached != null && (bundled == null || cached.Version > bundled.Version) ? cached : bundled;
             if (list == null)
             {
-                list = new FilterList(0, null, new string[0], new string[0], new string[0]);
+                list = new FilterList(0, null, null, new string[0], new string[0], new string[0]);
             }
             Log.Write("Ad filters version " + list.Version + (list == cached ? " (downloaded)" : " (built in)"));
             return list;
@@ -160,8 +166,11 @@ namespace TubeBox.Blocking
                 return null;
             }
             var updated = json.GetNamedValue("updated", JsonValue.CreateNullValue());
+            var userAgent = json.GetNamedValue("userAgent", JsonValue.CreateNullValue());
+            var userAgentText = userAgent.ValueType == JsonValueType.String ? userAgent.GetString() : null;
             return new FilterList((int)version.GetNumber(),
                 updated.ValueType == JsonValueType.String ? updated.GetString() : null,
+                userAgentText != null && userAgentText.Length >= 20 && userAgentText.Length <= 500 ? userAgentText : null,
                 pruneKeys, pruneItems, blockUrls);
         }
 
