@@ -2,6 +2,10 @@
 
 A release's notes come from its section here (the heading must match the tag).
 
+## v1.3.0
+- Smooth animations: rows and tiles slide and fade when you move around, as on other TVs. Settings → Smooth animations turns them off if scrolling stutters on your console.
+- No more black boxes behind the title, channel and times over a video; the text has a soft shadow instead.
+
 ## v1.2.0
 - Shorts play inside their frame in the middle of the screen, instead of off to the left.
 - The right stick should no longer move twice: on the console, TubeBox now ignores every key and scroll event the console makes from the controller and goes by its own reading of it. (If it still does, Settings → View log lists what the console sent.)

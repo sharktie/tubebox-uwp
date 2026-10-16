@@ -33,6 +33,15 @@ namespace TubeBox
         private const string HomeUrl = "https://www.youtube.com/tv";
 
         /// <summary>
+        /// The TV app's address. With smooth animations on, env_forceFullAnimation tells it to slide
+        /// and fade as it does on other TVs: it leaves that out for the device TubeBox says it is.
+        /// </summary>
+        private static string YouTubeUrl
+        {
+            get { return AppSettings.SmoothAnimations ? HomeUrl + "?env_forceFullAnimation=true" : HomeUrl; }
+        }
+
+        /// <summary>
         /// YouTube only serves its TV app to TVs and consoles. This is the Xbox's YouTube app: on some
         /// videos YouTube holds the picture back for as long as a blocked ad when it thinks it is
         /// talking to other devices (a Chromecast, for one), but not to an Xbox. The filter list can
@@ -148,8 +157,8 @@ namespace TubeBox
 #if DEBUG
             StartDevCommands(_core);
 #endif
-            Log.Write("Loading " + HomeUrl);
-            _core.Navigate(HomeUrl);
+            Log.Write("Loading " + YouTubeUrl);
+            _core.Navigate(YouTubeUrl);
             WebView.Focus(FocusState.Programmatic);
         }
 
@@ -253,6 +262,11 @@ namespace TubeBox
                 Header = "Skip sponsor segments (SponsorBlock)",
                 IsOn = AppSettings.SponsorBlock,
             };
+            var animations = new ToggleSwitch
+            {
+                Header = "Smooth animations (turn off if scrolling stutters)",
+                IsOn = AppSettings.SmoothAnimations,
+            };
             var codec = new ComboBox
             {
                 Header = "Video codec",
@@ -288,6 +302,7 @@ namespace TubeBox
             var panel = new StackPanel { Spacing = 20, MinWidth = 460 };
             panel.Children.Add(blockAds);
             panel.Children.Add(sponsorBlock);
+            panel.Children.Add(animations);
             panel.Children.Add(codec);
             panel.Children.Add(quality);
             panel.Children.Add(status);
@@ -345,8 +360,15 @@ namespace TubeBox
                 return;
             }
             var changed = filtersChanged;
+            var restart = false;
             if (result == ContentDialogResult.Primary)
             {
+                if (animations.IsOn != AppSettings.SmoothAnimations)
+                {
+                    // Read once when YouTube starts, from its address.
+                    AppSettings.SmoothAnimations = animations.IsOn;
+                    restart = true;
+                }
                 var newCodec = AppSettings.Codecs[Math.Max(0, codec.SelectedIndex)];
                 var newHeight = AppSettings.MaxHeights[Math.Max(0, quality.SelectedIndex)];
                 if (blockAds.IsOn != AppSettings.BlockAds || sponsorBlock.IsOn != AppSettings.SponsorBlock ||
@@ -363,7 +385,12 @@ namespace TubeBox
             {
                 await ApplySettingsAsync();
             }
-            if (changed || reloadRequested)
+            if (restart)
+            {
+                Log.Write("Restarting YouTube at " + YouTubeUrl);
+                _core.Navigate(YouTubeUrl);
+            }
+            else if (changed || reloadRequested)
             {
                 Log.Write("Reloading YouTube");
                 _core.Reload();

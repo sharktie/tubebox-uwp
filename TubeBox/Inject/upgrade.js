@@ -9,7 +9,9 @@
  *    that has no sddefault.
  *  - A focused video tile doesn't start a preview. Other TVs get a startInlinePlaybackCommand
  *    on each tile; the same one is added (the values are the ones YouTube sends a Chromecast).
- * The app build YouTube serves that device also misplaces the video in Shorts (fitShorts).
+ * The app build YouTube serves that device also misplaces the video in Shorts (fitShorts) and
+ * draws black boxes behind text (fixLegacyLook). Its missing animations are turned back on by
+ * the address the app opens (env_forceFullAnimation, MainPage.xaml.cs).
  */
 (function () {
     var SMALL_THUMBNAIL = /^https:\/\/i\.ytimg\.com\/vi\/([\w-]{11})\/(?:hq|mq|)default\.jpg/;
@@ -129,7 +131,53 @@
         if (!root.hasAttribute('data-tubebox-shorts')) root.setAttribute('data-tubebox-shorts', '');
     }
 
+    /* The build's stylesheet also has an old-TV look (rules under .app-quality-root): solid black
+       boxes behind the title, channel and times over a video, and no text shadows. Those rules
+       are found by what they do (the class names change with every YouTube release) and
+       changed: the boxes become a shadow behind the text, and the shadows come back. The rest of
+       the old-TV rules stay; some of them keep the video visible. */
+    var TEXT_SHADOW = '0 0 0.5rem rgba(0, 0, 0, 0.9), 0 0.1rem 0.25rem rgba(0, 0, 0, 0.9)';
+    var fixedRules = typeof WeakSet === 'function' ? new WeakSet() : null;
+
+    function fixLegacyRules(list, owner) {
+        for (var i = list.length - 1; i >= 0; i--) {
+            var rule = list[i];
+            if (rule.cssRules && !rule.selectorText) {
+                fixLegacyRules(rule.cssRules, rule);
+                continue;
+            }
+            if (!rule.selectorText || rule.selectorText.indexOf('app-quality-root') < 0 || (fixedRules && fixedRules.has(rule))) continue;
+            var style = rule.style;
+            if (style.backgroundColor === 'rgb(0, 0, 0)' && style.display === 'inline') {
+                style.backgroundColor = 'transparent';
+                style.textShadow = TEXT_SHADOW;
+                if (fixedRules) fixedRules.add(rule);
+            } else if (style.textShadow === 'none' && style.length === 1) {
+                owner.deleteRule(i);
+            }
+        }
+    }
+
+    function fixLegacyLook() {
+        for (var i = 0; i < document.styleSheets.length; i++) {
+            var sheet = document.styleSheets[i];
+            try {
+                fixLegacyRules(sheet.cssRules, sheet);
+            } catch (e) {
+                // A stylesheet from another site; not YouTube's.
+            }
+        }
+    }
+
     if (isTop) {
+        // Stylesheets arrive as the app loads its parts; look again whenever one is added.
+        var watchStyles = function () {
+            fixLegacyLook();
+            new MutationObserver(fixLegacyLook).observe(document.head || document.documentElement, { childList: true });
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchStyles);
+        else watchStyles();
+
         var shortsStyle = document.createElement('style');
         shortsStyle.textContent =
             'html[data-tubebox-shorts] .html5-video-player video.video-stream {' +

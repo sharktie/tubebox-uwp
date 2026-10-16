@@ -8,6 +8,7 @@ namespace TubeBox.Settings
     {
         private const string BlockAdsKey = "blockAds";
         private const string SponsorBlockKey = "sponsorBlock";
+        private const string SmoothAnimationsKey = "smoothAnimations";
         private const string CodecKey = "codec";
         private const string MaxHeightKey = "maxHeight";
 
@@ -25,6 +26,16 @@ namespace TubeBox.Settings
         {
             get { return Get(SponsorBlockKey, true); }
             set { Values[SponsorBlockKey] = value; }
+        }
+
+        /// <summary>
+        /// Slides and fades when moving around. YouTube leaves them out for the device TubeBox says
+        /// it is; this turns them back on (see MainPage.YouTubeUrl).
+        /// </summary>
+        public static bool SmoothAnimations
+        {
+            get { return Get(SmoothAnimationsKey, true); }
+            set { Values[SmoothAnimationsKey] = value; }
         }
 
         /// <summary>"auto" (whatever YouTube picks), "vp9" (no AV1) or "h264" (no AV1 or VP9).</summary>
