@@ -33,7 +33,7 @@ const FILTERS = JSON.parse(readFileSync(join(ROOT, 'TubeBox/Inject/filters.json'
 const USER_AGENT = FILTERS.userAgent ||
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Xbox; Xbox Series X) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/48.0.2564.82 Safari/537.36 Edge/20.02';
-const PARTS = ['prelude.js', 'adblock.js', 'sponsorblock.js', 'video.js', 'controller.js'];
+const PARTS = ['prelude.js', 'adblock.js', 'upgrade.js', 'sponsorblock.js', 'video.js', 'controller.js'];
 
 const args = process.argv.slice(2);
 const blockAds = !args.includes('--off');

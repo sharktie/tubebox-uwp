@@ -10,8 +10,9 @@
  * Menu and View open TubeBox's settings in the app and never reach the page.
  */
 if (isTop && webview) (function () {
-    /* The console can deliver one press both through the app and as a key event in the page; the
-       second copy within this window is dropped. */
+    /* Off the console (on a PC), a controller press and a keyboard key meaning the same within this
+       window count once. On the console the browser's own key events are dropped altogether
+       (below). */
     var DEDUPE_MS = 150;
     var KEYS = {
         up: [38, 'ArrowUp'],
@@ -27,7 +28,7 @@ if (isTop && webview) (function () {
         lt: [227, 'MediaRewind'],
         rt: [228, 'MediaFastForward']
     };
-    /* Real key events that mean the same as a controller action, for the de-duplication. */
+    /* Real key events that mean the same as a controller action. */
     var KEY_ACTION = {
         ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
         Enter: 'select', NumpadEnter: 'select', Escape: 'back', GoBack: 'back', BrowserBack: 'back'
@@ -66,17 +67,25 @@ if (isTop && webview) (function () {
         fire('keyup', def, false);
     });
 
+    var droppedLogged = 0;
+
     ['keydown', 'keyup'].forEach(function (type) {
         window.addEventListener(type, function (e) {
             if (!e.isTrusted) return;
-            /* The Xbox's own gamepad key codes (195-218): the app's messages are the one source of
-               controller input, so the TV app never sees a press twice. */
-            if (e.keyCode >= 195 && e.keyCode <= 218) {
+            var action = KEY_ACTION[e.key];
+            /* On the console the app's messages are the one source of controller input. The
+               browser also turns the controller into key events of its own (its gamepad codes,
+               195-218, and arrow keys for the stick, at its own moments), which would move YouTube
+               a second time; they are all dropped. Elsewhere only the gamepad codes are. */
+            if ((e.keyCode >= 195 && e.keyCode <= 218) || (config.xbox && action)) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
+                if (type === 'keydown' && droppedLogged < 10) {
+                    droppedLogged++;
+                    log('ignored the console\'s own key ' + e.key + ' (' + e.keyCode + ')' + (e.repeat ? ' repeat' : ''));
+                }
                 return;
             }
-            var action = KEY_ACTION[e.key];
             if (!action) return;
             var now = performance.now();
             if (type === 'keydown') {

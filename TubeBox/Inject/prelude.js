@@ -3,9 +3,11 @@
  * The app (TubeBox/MainPage.xaml.cs) joins the files in Inject/ into one script and runs it at the
  * start of every YouTube page, before YouTube's own code:
  *
- *   (function (config) { prelude.js, adblock.js, video.js, controller.js })({ ...settings... });
+ *   (function (config) { prelude.js, adblock.js, upgrade.js, sponsorblock.js, video.js,
+ *                        controller.js })({ ...settings... });
  *
- * config: { xbox, blockAds, filters: {pruneKeys, pruneItems}, codec: 'auto'|'vp9'|'h264', maxHeight }
+ * config: { xbox, blockAds, sponsorBlock, filters: {pruneKeys, pruneItems},
+ *           codec: 'auto'|'vp9'|'h264', maxHeight }
  */
 var webview = window.chrome && window.chrome.webview;
 var isTop = window.top === window;

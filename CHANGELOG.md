@@ -2,6 +2,11 @@
 
 A release's notes come from its section here (the heading must match the tag).
 
+## v1.1.0
+- Sharper thumbnails: video tiles now load the 640x480 picture instead of 320x180.
+- Focused video tiles start a preview after a few seconds again, as on other TVs.
+- The left stick no longer moves twice: each push counts once, and the console's own key presses from the controller are ignored so only TubeBox's reading of it counts.
+
 ## v1.0.0
 - First release: YouTube's TV app on Xbox, with video ads, sponsored tiles and ad servers blocked.
 - SponsorBlock skips sponsor reads, self-promotion and subscribe reminders inside videos.

@@ -14,7 +14,10 @@ namespace TubeBox.Input
         private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(30);
         private static readonly TimeSpan FirstRepeatDelay = TimeSpan.FromMilliseconds(400);
         private static readonly TimeSpan RepeatInterval = TimeSpan.FromMilliseconds(110);
+        // A stick direction starts past StickThreshold and lasts until the stick falls back under
+        // StickRelease, so a stick resting near one value can't flicker on and off and move twice.
         private const double StickThreshold = 0.6;
+        private const double StickRelease = 0.35;
         private const double TriggerThreshold = 0.5;
 
         private static readonly ButtonAction[] Buttons =
@@ -35,6 +38,7 @@ namespace TubeBox.Input
         private bool _previousLeftTrigger;
         private bool _previousRightTrigger;
         private string _heldDirection;
+        private string _stickDirection;
         private DateTime _nextRepeat;
 
         /// <param name="send">Called on the UI thread with an action name and whether it is a held-down repeat.</param>
@@ -107,9 +111,10 @@ namespace TubeBox.Input
             }
         }
 
-        private static ControllerReading Read()
+        private ControllerReading Read()
         {
             var result = new ControllerReading();
+            double stickX = 0, stickY = 0;
             foreach (var gamepad in Gamepad.Gamepads)
             {
                 var reading = gamepad.GetCurrentReading();
@@ -118,29 +123,60 @@ namespace TubeBox.Input
                 result.RightTrigger |= reading.RightTrigger > TriggerThreshold;
                 if (result.Direction == null)
                 {
-                    result.Direction = GetDirection(reading);
+                    result.Direction = GetDPadDirection(reading.Buttons);
                 }
+                // With several controllers, the stick pushed furthest counts.
+                if (Math.Max(Math.Abs(reading.LeftThumbstickX), Math.Abs(reading.LeftThumbstickY)) >
+                    Math.Max(Math.Abs(stickX), Math.Abs(stickY)))
+                {
+                    stickX = reading.LeftThumbstickX;
+                    stickY = reading.LeftThumbstickY;
+                }
+            }
+            var stick = GetStickDirection(stickX, stickY);
+            if (result.Direction == null)
+            {
+                result.Direction = stick;
             }
             return result;
         }
 
-        private static string GetDirection(GamepadReading reading)
+        private static string GetDPadDirection(GamepadButtons buttons)
         {
-            if ((reading.Buttons & GamepadButtons.DPadUp) != 0) return "up";
-            if ((reading.Buttons & GamepadButtons.DPadDown) != 0) return "down";
-            if ((reading.Buttons & GamepadButtons.DPadLeft) != 0) return "left";
-            if ((reading.Buttons & GamepadButtons.DPadRight) != 0) return "right";
-            var x = reading.LeftThumbstickX;
-            var y = reading.LeftThumbstickY;
-            if (Math.Abs(x) < StickThreshold && Math.Abs(y) < StickThreshold)
+            if ((buttons & GamepadButtons.DPadUp) != 0) return "up";
+            if ((buttons & GamepadButtons.DPadDown) != 0) return "down";
+            if ((buttons & GamepadButtons.DPadLeft) != 0) return "left";
+            if ((buttons & GamepadButtons.DPadRight) != 0) return "right";
+            return null;
+        }
+
+        private string GetStickDirection(double x, double y)
+        {
+            var strongest = Math.Abs(y) >= Math.Abs(x) ? (y > 0 ? "up" : "down") : (x > 0 ? "right" : "left");
+            if (_stickDirection != null && Along(_stickDirection, x, y) >= StickRelease)
             {
-                return null;
+                // Still held. Swinging round to another direction counts once it is pushed as far
+                // as a new press would need.
+                if (strongest != _stickDirection && Along(strongest, x, y) >= StickThreshold)
+                {
+                    _stickDirection = strongest;
+                }
+                return _stickDirection;
             }
-            if (Math.Abs(y) >= Math.Abs(x))
+            _stickDirection = Math.Max(Math.Abs(x), Math.Abs(y)) >= StickThreshold ? strongest : null;
+            return _stickDirection;
+        }
+
+        /// <summary>How far the stick is pushed in the given direction (negative if the other way).</summary>
+        private static double Along(string direction, double x, double y)
+        {
+            switch (direction)
             {
-                return y > 0 ? "up" : "down";
+                case "up": return y;
+                case "down": return -y;
+                case "right": return x;
+                default: return -x;
             }
-            return x > 0 ? "right" : "left";
         }
 
         private sealed class ControllerReading

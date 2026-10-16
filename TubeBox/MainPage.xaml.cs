@@ -43,7 +43,7 @@ namespace TubeBox
             "(KHTML, like Gecko) Chrome/48.0.2564.82 Safari/537.36 Edge/20.02";
 
         /// <summary>Joined in this order into the script added to every page (see Inject/prelude.js).</summary>
-        private static readonly string[] ScriptParts = { "prelude.js", "adblock.js", "sponsorblock.js", "video.js", "controller.js" };
+        private static readonly string[] ScriptParts = { "prelude.js", "adblock.js", "upgrade.js", "sponsorblock.js", "video.js", "controller.js" };
 
         private static readonly bool IsXbox = AnalyticsInfo.VersionInfo.DeviceFamily == "Windows.Xbox";
 

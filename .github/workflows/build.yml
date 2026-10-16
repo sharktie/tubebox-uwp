@@ -105,7 +105,7 @@ jobs:
           $dependencies = $manifest.Package.Dependencies.PackageDependency | ForEach-Object { $_.Name }
           $sizeMb = [math]::Round($msix.Length / 1MB, 1)
           "::notice title=Package (${{ matrix.configuration }})::$($msix.Name) ($sizeMb MB); depends on $($dependencies -join ', ')"
-          $required = @('Inject/prelude.js', 'Inject/adblock.js', 'Inject/sponsorblock.js', 'Inject/video.js', 'Inject/controller.js', 'Inject/filters.json')
+          $required = @('Inject/prelude.js', 'Inject/adblock.js', 'Inject/upgrade.js', 'Inject/sponsorblock.js', 'Inject/video.js', 'Inject/controller.js', 'Inject/filters.json')
           $missing = $required | Where-Object { $entries -notcontains $_ }
           if ($missing) { throw "Missing from package: $($missing -join ', ')" }
           Get-ChildItem AppPackages -Recurse -File | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + 1) }
