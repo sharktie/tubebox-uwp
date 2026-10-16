@@ -9,6 +9,7 @@
  *    that has no sddefault.
  *  - A focused video tile doesn't start a preview. Other TVs get a startInlinePlaybackCommand
  *    on each tile; the same one is added (the values are the ones YouTube sends a Chromecast).
+ * The app build YouTube serves that device also misplaces the video in Shorts (fitShorts).
  */
 (function () {
     var SMALL_THUMBNAIL = /^https:\/\/i\.ytimg\.com\/vi\/([\w-]{11})\/(?:hq|mq|)default\.jpg/;
@@ -98,6 +99,47 @@
         for (var key in node) {
             if (hasOwn.call(node, key)) walk(node[key], depth + 1);
         }
+    }
+
+    /* Shorts: this build lays the video out for the whole screen and slides it off to the left,
+       instead of into the Shorts frame in the middle. While a Short is open, a stylesheet rule
+       (which the player's own inline sizes can't override) puts it inside the frame, filled
+       the way other TVs show it. */
+    function fitShorts() {
+        var root = document.documentElement;
+        var page = document.querySelector('ytlr-shorts-page');
+        var ring = page && page.getBoundingClientRect().width > 0 && document.querySelector('ytlr-player-focus-ring');
+        var video = ring && document.querySelector('.html5-video-player video.video-stream');
+        var box = ring && ring.getBoundingClientRect();
+        if (!video || !box || box.width < 50 || box.height < 50) {
+            if (root.hasAttribute('data-tubebox-shorts')) root.removeAttribute('data-tubebox-shorts');
+            return;
+        }
+        var border = parseFloat(getComputedStyle(ring).borderLeftWidth) || 0;
+        var container = video.parentElement.getBoundingClientRect();
+        var values = {
+            '--tubebox-shorts-left': (box.left + border - container.left) + 'px',
+            '--tubebox-shorts-top': (box.top - container.top) + 'px',
+            '--tubebox-shorts-width': (box.width - 2 * border) + 'px',
+            '--tubebox-shorts-height': box.height + 'px'
+        };
+        for (var name in values) {
+            if (root.style.getPropertyValue(name) !== values[name]) root.style.setProperty(name, values[name]);
+        }
+        if (!root.hasAttribute('data-tubebox-shorts')) root.setAttribute('data-tubebox-shorts', '');
+    }
+
+    if (isTop) {
+        var shortsStyle = document.createElement('style');
+        shortsStyle.textContent =
+            'html[data-tubebox-shorts] .html5-video-player video.video-stream {' +
+            ' left: var(--tubebox-shorts-left) !important; top: var(--tubebox-shorts-top) !important;' +
+            ' width: var(--tubebox-shorts-width) !important; height: var(--tubebox-shorts-height) !important;' +
+            ' object-fit: cover !important; }';
+        var addStyle = function () { (document.head || document.documentElement).appendChild(shortsStyle); };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addStyle);
+        else addStyle();
+        setInterval(fitShorts, 250);
     }
 
     wrapMethod(JSON, 'parse', function (parse) {

@@ -69,21 +69,26 @@ if (isTop && webview) (function () {
 
     var droppedLogged = 0;
 
-    ['keydown', 'keyup'].forEach(function (type) {
+    function logDropped(e) {
+        if (droppedLogged >= 20) return;
+        droppedLogged++;
+        log('ignored the console\'s own ' + e.type + ' ' +
+            (e.key !== undefined ? e.key + ' (' + e.keyCode + ')' : 'deltaY ' + e.deltaY) + (e.repeat ? ' repeat' : ''));
+    }
+
+    ['keydown', 'keyup', 'keypress'].forEach(function (type) {
         window.addEventListener(type, function (e) {
             if (!e.isTrusted) return;
             var action = KEY_ACTION[e.key];
             /* On the console the app's messages are the one source of controller input. The
                browser also turns the controller into key events of its own (its gamepad codes,
-               195-218, and arrow keys for the stick, at its own moments), which would move YouTube
-               a second time; they are all dropped. Elsewhere only the gamepad codes are. */
-            if ((e.keyCode >= 195 && e.keyCode <= 218) || (config.xbox && action)) {
+               195-218, arrow keys and others for the sticks, at its own moments), which would move
+               YouTube a second time; every key event from it is dropped. Elsewhere only the
+               gamepad codes are. */
+            if (config.xbox || (e.keyCode >= 195 && e.keyCode <= 218)) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                if (type === 'keydown' && droppedLogged < 10) {
-                    droppedLogged++;
-                    log('ignored the console\'s own key ' + e.key + ' (' + e.keyCode + ')' + (e.repeat ? ' repeat' : ''));
-                }
+                if (type === 'keydown') logDropped(e);
                 return;
             }
             if (!action) return;
@@ -108,14 +113,17 @@ if (isTop && webview) (function () {
 
     if (!config.xbox) return;
 
-    /* The console turns the controller into a mouse pointer the page can't switch off. It is
-       hidden, and its clicks and moves dropped, so A doesn't also click whatever is under it. */
+    /* The console turns the controller into a mouse pointer the page can't switch off, and the
+       right stick into scrolling. The pointer is hidden and its clicks and moves dropped, so A
+       doesn't also click whatever is under it. Scroll wheel events are dropped too: the TV app
+       turns each one into an arrow key. */
     ['pointerdown', 'pointerup', 'pointermove', 'pointerover', 'mousedown', 'mouseup', 'mousemove',
-     'mouseover', 'click', 'dblclick', 'auxclick', 'contextmenu', 'wheel'].forEach(function (type) {
+     'mouseover', 'click', 'dblclick', 'auxclick', 'contextmenu', 'wheel', 'mousewheel'].forEach(function (type) {
         window.addEventListener(type, function (e) {
             if (!e.isTrusted) return;
             e.preventDefault();
             e.stopImmediatePropagation();
+            if (type === 'wheel' || type === 'mousewheel') logDropped(e);
         }, { capture: true, passive: false });
     });
     function hideCursor() {

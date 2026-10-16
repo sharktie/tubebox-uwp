@@ -2,6 +2,11 @@
 
 A release's notes come from its section here (the heading must match the tag).
 
+## v1.2.0
+- Shorts play inside their frame in the middle of the screen, instead of off to the left.
+- The right stick should no longer move twice: on the console, TubeBox now ignores every key and scroll event the console makes from the controller and goes by its own reading of it. (If it still does, Settings → View log lists what the console sent.)
+- Settings → View log shows the app's log on the TV, for reporting a problem.
+
 ## v1.1.0
 - Sharper thumbnails: video tiles now load the 640x480 picture instead of 320x180.
 - Focused video tiles start a preview after a few seconds again, as on other TVs.

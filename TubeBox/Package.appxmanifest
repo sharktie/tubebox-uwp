@@ -10,7 +10,7 @@
   <Identity
     Name="f4420250-f8e7-4005-aefe-9e6025adf10b"
     Publisher="CN=TubeBoxUWP"
-    Version="1.1.0.0" />
+    Version="1.2.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="f4420250-f8e7-4005-aefe-9e6025adf10b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

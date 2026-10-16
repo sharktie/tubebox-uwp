@@ -38,7 +38,7 @@ This app is for Xbox consoles in **Developer Mode**, which is how Xbox lets you 
 - Turning off **Block ads** in the settings brings YouTube back exactly as it is.
 
 ## Troubleshooting
-The app writes a log you can download from the Device Portal: **File explorer → LocalAppData →** the TubeBox package folder (`f4420250-…`) **→ LocalState → `tubebox.log`**. Include it when reporting a problem.
+Settings → **View log** shows the end of the app's log on the TV. The whole file can be downloaded from the Device Portal: **File explorer → LocalAppData →** the TubeBox package folder (`f4420250-…`) **→ LocalState → `tubebox.log`**. Include it when reporting a problem.
 
 ## Building
 Every push builds signed packages with GitHub Actions (`.github/workflows/build.yml`), and pushing a tag such as `v1.0.0` publishes a release.

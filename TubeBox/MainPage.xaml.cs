@@ -279,9 +279,11 @@ namespace TubeBox
             showStatus();
             var updateButton = new Button { Content = "Update ad filters" };
             var reloadButton = new Button { Content = "Reload YouTube" };
+            var logButton = new Button { Content = "View log" };
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             buttons.Children.Add(updateButton);
             buttons.Children.Add(reloadButton);
+            buttons.Children.Add(logButton);
 
             var panel = new StackPanel { Spacing = 20, MinWidth = 460 };
             panel.Children.Add(blockAds);
@@ -322,27 +324,20 @@ namespace TubeBox
                 reloadRequested = true;
                 dialog.Hide();
             };
+            // Only one dialog can be open at a time: this one closes, then the log opens.
+            var logRequested = false;
+            logButton.Click += (s, e) =>
+            {
+                logRequested = true;
+                dialog.Hide();
+            };
 
-            _dialogOpen = true;
-            if (_controller != null)
+            var result = await ShowDialogAsync(dialog);
+            if (logRequested)
             {
-                _controller.Paused = true;
+                await ShowLogAsync();
+                return;
             }
-            ContentDialogResult result;
-            try
-            {
-                result = await dialog.ShowAsync();
-            }
-            finally
-            {
-                _dialogOpen = false;
-                if (_controller != null)
-                {
-                    _controller.Paused = false;
-                }
-                WebView.Focus(FocusState.Programmatic);
-            }
-
             if (result == ContentDialogResult.Secondary)
             {
                 Log.Write("Exit chosen in settings");
@@ -373,6 +368,57 @@ namespace TubeBox
                 Log.Write("Reloading YouTube");
                 _core.Reload();
             }
+        }
+
+        /// <summary>Shows a dialog with the controller left to XAML while it is open.</summary>
+        private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
+        {
+            _dialogOpen = true;
+            if (_controller != null)
+            {
+                _controller.Paused = true;
+            }
+            try
+            {
+                return await dialog.ShowAsync();
+            }
+            finally
+            {
+                _dialogOpen = false;
+                if (_controller != null)
+                {
+                    _controller.Paused = false;
+                }
+                WebView.Focus(FocusState.Programmatic);
+            }
+        }
+
+        /// <summary>The end of the app's log, newest at the bottom, for reporting a problem from the TV.</summary>
+        private async Task ShowLogAsync()
+        {
+            var text = new TextBlock
+            {
+                Text = Log.ReadRecent(false, 12000),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                IsTextSelectionEnabled = false,
+            };
+            // Focusable, so the controller can scroll it.
+            var scroller = new ScrollViewer { Content = text, IsTabStop = true, MaxHeight = 420 };
+            var dialog = new ContentDialog
+            {
+                Title = "TubeBox log",
+                Content = scroller,
+                CloseButtonText = "Close",
+            };
+            dialog.Opened += (s, e) =>
+            {
+                scroller.UpdateLayout();
+                scroller.ChangeView(null, scroller.ScrollableHeight, null, true);
+                scroller.Focus(FocusState.Programmatic);
+            };
+            await ShowDialogAsync(dialog);
         }
 
         public void SetPointerMode(bool enabled)
