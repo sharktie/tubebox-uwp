@@ -126,9 +126,12 @@ if (isTop && webview) (function () {
             if (type === 'wheel' || type === 'mousewheel') logDropped(e);
         }, { capture: true, passive: false });
     });
+    /* The pointer still sits somewhere on the screen, though, and whatever scrolls under it would
+       show YouTube's hover outline (a grey frame on the tile next to the focused one). Nothing
+       on the page responds to the pointer at all, so nothing can be hovered. */
     function hideCursor() {
         var style = document.createElement('style');
-        style.textContent = 'html, html * { cursor: none !important; }';
+        style.textContent = 'html, html * { cursor: none !important; pointer-events: none !important; }';
         (document.head || document.documentElement).appendChild(style);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hideCursor);

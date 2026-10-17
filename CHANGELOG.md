@@ -2,6 +2,9 @@
 
 A release's notes come from its section here (the heading must match the tag).
 
+## v1.5.0
+- No more grey outline on the tile next to the one you're on after scrolling. It was YouTube's hover outline, set off by the console's hidden pointer sitting in the middle of the screen; the page now ignores the pointer altogether.
+
 ## v1.4.0
 - The video dims behind the controls and the related videos below it again, as on other TVs.
 - Related videos below a playing video no longer start a preview, which stopped the video and then took over the screen.
