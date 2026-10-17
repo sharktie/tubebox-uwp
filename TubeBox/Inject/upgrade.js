@@ -87,20 +87,29 @@
         tile.onFocusCommand = preview;
     }
 
-    function walk(node, depth) {
+    function walk(node, depth, previews) {
         if (!node || typeof node !== 'object' || depth > 100) return;
         if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth + 1);
+            for (var i = 0; i < node.length; i++) walk(node[i], depth + 1, previews);
             return;
         }
         var tile = node.tileRenderer;
         if (tile && typeof tile === 'object') {
             upgradeThumbnail(tile.header && tile.header.tileHeaderRenderer);
-            addPreview(tile);
+            if (previews) addPreview(tile);
         }
         for (var key in node) {
-            if (hasOwn.call(node, key)) walk(node[key], depth + 1);
+            if (hasOwn.call(node, key)) walk(node[key], depth + 1, previews);
         }
+    }
+
+    /* No previews on the related videos below a playing video, as on other TVs: a preview would
+       stop the video and then take over the screen. They come with the video (its watch-next
+       response), and more of them load while it plays. */
+    function wantsPreviews(result) {
+        if (result.currentVideoEndpoint || (result.contents && result.contents.singleColumnWatchNextResults)) return false;
+        if (!result.contents && /^#\/watch/.test(location.hash)) return false;
+        return true;
     }
 
     /* Shorts: this build lays the video out for the whole screen and slides it off to the left,
@@ -183,7 +192,12 @@
             'html[data-tubebox-shorts] .html5-video-player video.video-stream {' +
             ' left: var(--tubebox-shorts-left) !important; top: var(--tubebox-shorts-top) !important;' +
             ' width: var(--tubebox-shorts-width) !important; height: var(--tubebox-shorts-height) !important;' +
-            ' object-fit: cover !important; }';
+            ' object-fit: cover !important; }' +
+            /* The shade over the video while the related videos below it are in focus: the old-TV
+               rules hide it. It is the full-screen layer the app tints with the video's colours;
+               the app itself fades it in and out. Translucent, as on other TVs. */
+            ' ytlr-watch-default > div[style*="gradient"] {' +
+            ' display: block !important; background-color: rgba(0, 0, 0, 0.3) !important; }';
         var addStyle = function () { (document.head || document.documentElement).appendChild(shortsStyle); };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addStyle);
         else addStyle();
@@ -195,7 +209,7 @@
             var result = parse.apply(this, arguments);
             if (typeof text === 'string' && text.indexOf('"tileRenderer"') >= 0 && result && typeof result === 'object') {
                 try {
-                    walk(result, 0);
+                    walk(result, 0, wantsPreviews(result));
                 } catch (e) {
                     log('upgrading tiles failed: ' + e);
                 }

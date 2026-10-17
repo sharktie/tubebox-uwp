@@ -2,6 +2,10 @@
 
 A release's notes come from its section here (the heading must match the tag).
 
+## v1.4.0
+- The video dims behind the controls and the related videos below it again, as on other TVs.
+- Related videos below a playing video no longer start a preview, which stopped the video and then took over the screen.
+
 ## v1.3.0
 - Smooth animations: rows and tiles slide and fade when you move around, as on other TVs. Settings → Smooth animations turns them off if scrolling stutters on your console.
 - No more black boxes behind the title, channel and times over a video; the text has a soft shadow instead.
